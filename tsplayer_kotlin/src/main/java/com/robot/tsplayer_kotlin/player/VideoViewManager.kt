@@ -1,12 +1,19 @@
 package com.robot.tsplayer_kotlin.player
 
-class VideoViewManager {
+class VideoViewManager() {
+
+    /**
+     * 是否在移动网络播放视频
+     */
+    private var mPlayOnMobileNetwork: Boolean = false
+
+
+    init {
+        mPlayOnMobileNetwork = getConfig()?.mPlayOnMobileNetwork ?: false
+    }
 
     companion object {
-
-
-        @JvmStatic
-        var sInstance: VideoViewManager? = null
+        private var sInstance: VideoViewManager? = null
 
         /**
          * VideoViewManager实例
@@ -51,8 +58,22 @@ class VideoViewManager {
             setConfig(null)
             return sConfig
         }
+
     }
 
+    /**
+     * 获取是否在移动网络播放视频
+     */
+    fun playOnMobileNetwork(): Boolean {
+        return mPlayOnMobileNetwork
+    }
+
+    /**
+     * 设置是否在移动网络播放视频
+     */
+    fun setPlayOnMobileNetwork(playOnMobileNetwork: Boolean) {
+        mPlayOnMobileNetwork = playOnMobileNetwork
+    }
 
 
 }
