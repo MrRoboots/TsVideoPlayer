@@ -3,6 +3,7 @@ package com.robot.tsplayer_kotlin.player
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.TrafficStats
 import android.net.Uri
@@ -15,7 +16,7 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
     MediaPlayer.OnPreparedListener, MediaPlayer.OnVideoSizeChangedListener {
 
     private var mAppContext: Context = context.applicationContext
-    private lateinit var mediaPlayer: MediaPlayer
+    private var mediaPlayer: MediaPlayer? = null
     private var mBufferingUpdate: Int = 0
     private var lastTimeStamp: Long = 0
     private var lastTotalRxBytes: Long = 0
@@ -24,21 +25,25 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
     override fun initPlayer() {
         mediaPlayer = MediaPlayer()
         setOptions()
-        val audioAttributes =
-            AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
-        mediaPlayer.setAudioAttributes(audioAttributes)
-        mediaPlayer.setOnBufferingUpdateListener(this)
-        mediaPlayer.setOnErrorListener(this)
-        mediaPlayer.setOnCompletionListener(this)
-        mediaPlayer.setOnInfoListener(this)
-        mediaPlayer.setOnBufferingUpdateListener(this)
-        mediaPlayer.setOnPreparedListener(this)
-        mediaPlayer.setOnVideoSizeChangedListener(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            val audioAttributes =
+                AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+            mediaPlayer?.setAudioAttributes(audioAttributes)
+        } else {
+            mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
+        }
+        mediaPlayer?.setOnBufferingUpdateListener(this)
+        mediaPlayer?.setOnErrorListener(this)
+        mediaPlayer?.setOnCompletionListener(this)
+        mediaPlayer?.setOnInfoListener(this)
+        mediaPlayer?.setOnBufferingUpdateListener(this)
+        mediaPlayer?.setOnPreparedListener(this)
+        mediaPlayer?.setOnVideoSizeChangedListener(this)
     }
 
-    override fun setDataSource(path: String, headers: Map<String, String>) {
+    override fun setDataSource(path: String, headers: Map<String?, String?>) {
         try {
-            mediaPlayer.setDataSource(mAppContext, Uri.parse(path), headers)
+            mediaPlayer?.setDataSource(mAppContext, Uri.parse(path), headers)
         } catch (e: Exception) {
             mPlayerEventListener.onError()
         }
@@ -46,7 +51,7 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun setDataSource(fd: AssetFileDescriptor) {
         try {
-            mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+            mediaPlayer?.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
         } catch (e: Exception) {
             mPlayerEventListener.onError()
         }
@@ -54,7 +59,7 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun start() {
         try {
-            mediaPlayer.start()
+            mediaPlayer?.start()
         } catch (e: IllegalStateException) {
             mPlayerEventListener.onError()
         }
@@ -62,7 +67,7 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun pause() {
         try {
-            mediaPlayer.pause()
+            mediaPlayer?.pause()
         } catch (e: IllegalStateException) {
             mPlayerEventListener.onError()
         }
@@ -70,7 +75,7 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun stop() {
         try {
-            mediaPlayer.stop()
+            mediaPlayer?.stop()
         } catch (e: IllegalStateException) {
             mPlayerEventListener.onError()
         }
@@ -78,43 +83,43 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun prepareAsync() {
         try {
-            mediaPlayer.prepareAsync()
+            mediaPlayer?.prepareAsync()
         } catch (e: IllegalStateException) {
             mPlayerEventListener.onError()
         }
     }
 
     override fun isPlaying(): Boolean {
-        return mediaPlayer.isPlaying
+        return mediaPlayer?.isPlaying ?: false
     }
 
     override fun isLooping(): Boolean {
-        return mediaPlayer.isLooping
+        return mediaPlayer?.isLooping ?: false
     }
 
     override fun getCurrentPosition(): Long {
-        return mediaPlayer.currentPosition.toLong()
+        return mediaPlayer?.currentPosition?.toLong() ?: 0
     }
 
     override fun getDuration(): Long {
-        return mediaPlayer.duration.toLong()
+        return mediaPlayer?.duration?.toLong() ?: 0
     }
 
     override fun reset() {
         stop()
-        mediaPlayer.reset()
-        mediaPlayer.setSurface(null)
-        mediaPlayer.setDisplay(null)
-        mediaPlayer.setVolume(1f, 1f)
+        mediaPlayer?.reset()
+        mediaPlayer?.setSurface(null)
+        mediaPlayer?.setDisplay(null)
+        mediaPlayer?.setVolume(1f, 1f)
     }
 
     override fun seekTo(time: Long) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                //使用这个api seekTo定位更加准确 支持android 8.0以上的设备 https://developer.android.com/reference/android/media/MediaPlayer#SEEK_CLOSEST
-                mediaPlayer.seekTo(time, MediaPlayer.SEEK_CLOSEST)
+                //使用这个api seekTo定位更加准确 支持android 8.0以上的设备 https://developer.android.com/reference/android/media/mediaPlayer?#SEEK_CLOSEST
+                mediaPlayer?.seekTo(time, MediaPlayer.SEEK_CLOSEST)
             } else {
-                mediaPlayer.seekTo(time.toInt())
+                mediaPlayer?.seekTo(time.toInt())
             }
         } catch (e: IllegalStateException) {
             mPlayerEventListener.onError()
@@ -127,7 +132,7 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun setSurface(surface: Surface?) {
         try {
-            mediaPlayer.setSurface(surface)
+            mediaPlayer?.setSurface(surface)
         } catch (e: Exception) {
             mPlayerEventListener.onError()
         }
@@ -135,39 +140,46 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     override fun setDisplay(holder: SurfaceHolder?) {
         try {
-            mediaPlayer.setDisplay(holder)
+            mediaPlayer?.setDisplay(holder)
         } catch (e: Exception) {
             mPlayerEventListener.onError()
         }
     }
 
     override fun setVolume(v1: Float, v2: Float) {
-        mediaPlayer.setVolume(v1, v2)
+        mediaPlayer?.setVolume(v1, v2)
     }
 
     override fun setLooping(isLooping: Boolean) {
-        mediaPlayer.isLooping = isLooping
+        mediaPlayer?.isLooping = isLooping
     }
 
     override fun setOptions() {
     }
 
     override fun setSpeed(speed: Float) {
-        try {
-            mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(speed)
-        } catch (e: java.lang.Exception) {
-            mPlayerEventListener.onError()
+        // only support above Android M
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                mediaPlayer?.playbackParams = mediaPlayer?.playbackParams?.setSpeed(speed)!!
+            } catch (e: Exception) {
+                mPlayerEventListener.onError()
+            }
         }
     }
 
     override fun getSpeed(): Float {
-        return try {
-            var speed: Float = mediaPlayer.playbackParams.speed
-            if (speed == 0f) speed = 1f
-            speed
-        } catch (e: Exception) {
-            1f
+        // only support above Android M
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return try {
+                var speed: Float = mediaPlayer?.playbackParams?.speed ?: 1f
+                if (speed == 0f) speed = 1f
+                speed
+            } catch (e: Exception) {
+                1f
+            }
         }
+        return 1f
     }
 
     override fun getTcpSpeed(): Long {
@@ -187,26 +199,24 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
     }
 
     override fun release() {
-        mediaPlayer.setOnErrorListener(null)
-        mediaPlayer.setOnCompletionListener(null)
-        mediaPlayer.setOnInfoListener(null)
-        mediaPlayer.setOnBufferingUpdateListener(null)
-        mediaPlayer.setOnPreparedListener(null)
-        mediaPlayer.setOnVideoSizeChangedListener(null)
+        mediaPlayer?.setOnErrorListener(null)
+        mediaPlayer?.setOnCompletionListener(null)
+        mediaPlayer?.setOnInfoListener(null)
+        mediaPlayer?.setOnBufferingUpdateListener(null)
+        mediaPlayer?.setOnPreparedListener(null)
+        mediaPlayer?.setOnVideoSizeChangedListener(null)
         stop()
-        mediaPlayer.release()
-
-        /* val mediaPlayer: MediaPlayer = mediaPlayer
-         this.mediaPlayer = null
-         object : Thread() {
-             override fun run() {
-                 try {
-                     mediaPlayer.release()
-                 } catch (e: java.lang.Exception) {
-                     e.printStackTrace()
-                 }
-             }
-         }.start()*/
+        val mediaPlayer: MediaPlayer? = mediaPlayer
+        this.mediaPlayer = null
+        object : Thread() {
+            override fun run() {
+                try {
+                    mediaPlayer?.release()
+                } catch (e: java.lang.Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }.start()
     }
 
 
@@ -247,7 +257,8 @@ open class AndroidMediaPlayer(context: Context) : AbstractPlayer(), MediaPlayer.
 
     private fun isVideo(): Boolean {
         try {
-            val trackInfo: Array<MediaPlayer.TrackInfo> = mediaPlayer.trackInfo
+            val trackInfo: Array<MediaPlayer.TrackInfo> =
+                mediaPlayer?.trackInfo as Array<MediaPlayer.TrackInfo>
             for (info in trackInfo) {
                 if (info.trackType == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_VIDEO) {
                     return true

@@ -29,7 +29,7 @@ abstract class AbstractPlayer {
      * @path 播放地址
      * @headers 播放请求头
      */
-    abstract fun setDataSource(path: String, headers: Map<String, String>)
+    abstract fun setDataSource(path: String, headers: Map<String?, String?>)
 
 
     /**

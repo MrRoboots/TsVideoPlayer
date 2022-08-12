@@ -1,5 +1,6 @@
 package com.robot.tsplayer_kotlin.player
 
+import android.app.Activity
 import android.content.ContentResolver
 import android.content.Context
 import android.content.res.AssetFileDescriptor
@@ -7,18 +8,34 @@ import android.content.res.TypedArray
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.Parcelable
 import android.text.TextUtils
 import android.util.AttributeSet
+import android.view.Gravity
 import android.view.ViewGroup
+import android.view.Window
 import android.widget.FrameLayout
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.robot.tsplayer_kotlin.R
 import com.robot.tsplayer_kotlin.controller.BaseVideoController
 import com.robot.tsplayer_kotlin.controller.MediaPlayerControl
+import com.robot.tsplayer_kotlin.render.IRenderView
 import com.robot.tsplayer_kotlin.render.RenderViewFactory
+import com.robot.tsplayer_kotlin.render.TextureRenderViewFactory
+import com.robot.tsplayer_kotlin.utils.L.d
 import com.robot.tsplayer_kotlin.utils.PlayerUtils
+import java.io.IOException
 
 /**
  * 带泛型的播放器
+ *
+ * 播放器视图层级
+ * 1.FrameLayout
+ * 2.mRenderView关联到mMediaPlayer
+ * 3.mPlayerContainer添加mRenderView?.view
+ * 4.mPlayerContainer添加控制层mVideoControl
  */
 
 open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
@@ -57,7 +74,7 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     /**
      * 是否循环播放
      */
-    private var mIsLopping: Boolean = false
+    private var mIsLooping: Boolean = false
 
     /**
      * 播放器背景颜色
@@ -71,10 +88,10 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
 
     //--------- data sources ---------//
     private var mUrl: String? = null //当前播放视频的地址
-    protected var mHeaders: Map<String, String>? = null //当前视频地址的请求头
+    private var mHeaders: Map<String?, String?>? = null //当前视频地址的请求头
     private var mAssetFileDescriptor: AssetFileDescriptor? = null //assets文件
 
-    protected var mCurrentPosition: Long = 0 //当前正在播放视频的位置
+    private var mCurrentPosition: Long = 0 //当前正在播放视频的位置
 
     /**
      * 播放器控制类
@@ -89,7 +106,23 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     /**
      * 音频焦点
      */
-    private lateinit var mAudioFocusHelper: AudioFocusHelper
+    private var mAudioFocusHelper: AudioFocusHelper? = null
+
+    /**
+     * 是否静音
+     */
+    private var isMute: Boolean = false
+
+
+    /**
+     * 渲染view
+     */
+    private var mRenderView: IRenderView? = null
+
+    /**
+     * 视频尺寸大小
+     */
+    private var mVideoSize = intArrayOf(0, 0)
 
 
     companion object {
@@ -116,9 +149,23 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
         const val STATE_BUFFERING = 6 //缓冲中
         const val STATE_BUFFERED = 7 //缓冲完成
         const val STATE_START_ABORT = 8 //开始播放中止
+
+        const val PLAYER_NORMAL = 10 // 普通播放器
+        const val PLAYER_FULL_SCREEN = 11 // 全屏播放器
+        const val PLAYER_TINY_SCREEN = 12 // 小屏播放器
     }
 
     private var mCurrentPlayState = STATE_IDLE //当前播放器的状态
+
+    private var mCurrentPlayerState = PLAYER_NORMAL //播放器类型
+
+    private var mIsFullScreen = false //是否处于全屏状态
+    private var mIsTinyScreen = false //是否处于小屏状态
+
+    /**
+     * 小窗视频尺寸大小
+     */
+    private var mTinyScreenSize = intArrayOf(0, 0)
 
 
     constructor(context: Context) : super(context, null)
@@ -138,7 +185,7 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
         config?.let {
             mEnableAudioFocus = it.mEnableAudioFocus
             mProgressManager = it.mProgressManager
-            mPlayerFactory = it.mPlayerFactory as PlayerFactory<P>?
+            mPlayerFactory = it.mPlayerFactory as PlayerFactory<P>
             mCurrentScreenScaleType = it.mScreenScaleType
             mRenderViewFactory = it.mRenderViewFactory
         }
@@ -147,13 +194,10 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
          * 设置自定义属性
          */
         val typedArray: TypedArray = context.obtainStyledAttributes(attrs, R.styleable.BaseVideoView)
-        mIsLopping = typedArray.getBoolean(R.styleable.BaseVideoView_looping, false)
-        mEnableAudioFocus =
-            typedArray.getBoolean(R.styleable.BaseVideoView_enableAudioFocus, mEnableAudioFocus)
-        mCurrentScreenScaleType =
-            typedArray.getInt(R.styleable.BaseVideoView_screenScaleType, mCurrentScreenScaleType)
-        mPlayerBackgroundColor =
-            typedArray.getInt(R.styleable.BaseVideoView_playerBackgroundColor, Color.BLACK)
+        mIsLooping = typedArray.getBoolean(R.styleable.BaseVideoView_looping, false)
+        mEnableAudioFocus = typedArray.getBoolean(R.styleable.BaseVideoView_enableAudioFocus, mEnableAudioFocus)
+        mCurrentScreenScaleType = typedArray.getInt(R.styleable.BaseVideoView_screenScaleType, mCurrentScreenScaleType)
+        mPlayerBackgroundColor = typedArray.getInt(R.styleable.BaseVideoView_playerBackgroundColor, Color.BLACK)
         typedArray.recycle()
 
         initView()
@@ -165,8 +209,7 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     private fun initView() {
         mPlayerContainer = FrameLayout(context)
         mPlayerContainer.setBackgroundColor(mPlayerBackgroundColor)
-        val params =
-            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        val params = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         this.addView(mPlayerContainer, params)
     }
 
@@ -175,6 +218,43 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
      */
     fun setProgressManager(progressManager: ProgressManager) {
         mProgressManager = progressManager
+    }
+
+    /**
+     * 循环播放， 默认不循环播放
+     */
+    fun setLooping(looping: Boolean) {
+        mIsLooping = looping
+        if (mMediaPlayer != null) {
+            mMediaPlayer?.setLooping(looping)
+        }
+    }
+
+    /**
+     * 音频获取焦点类
+     */
+    fun setEnableAudioFocus(audioFocusHelper: AudioFocusHelper) {
+        mAudioFocusHelper = audioFocusHelper
+    }
+
+    /**
+     *自定义播放核心 可继承PlayerFactory实现自定义核心
+     */
+    fun setPlayerFactory(playerFactory: PlayerFactory<*>?) {
+        if (playerFactory == null) {
+            throw IllegalArgumentException("playerFactory can not be null!")
+        }
+        mPlayerFactory = playerFactory as PlayerFactory<P>?
+    }
+
+    /**
+     * 自定义渲染RenderView
+     */
+    fun setRenderView(renderViewFactory: RenderViewFactory?) {
+        if (renderViewFactory == null) {
+            throw IllegalArgumentException("renderViewFactory can not be null!")
+        }
+        mRenderViewFactory = renderViewFactory
     }
 
     /**
@@ -201,7 +281,7 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     /**
      * 是否是播放状态
      */
-    private fun isInPlayState(): Boolean {
+    private fun isInPlaybackState(): Boolean {
         return mMediaPlayer != null
                 && mCurrentPlayState != STATE_ERROR
                 && mCurrentPlayState != STATE_IDLE
@@ -216,7 +296,7 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     override fun start() {
         if (isInIdeaState() || isInStartAbortState()) {
             startPlay()
-        } else if (isInPlayState()) {
+        } else if (isInPlaybackState()) {
             startInPlaybackState()
         }
     }
@@ -239,12 +319,12 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
 
         //设置进度管理
         if (mProgressManager != null) {
-            mCurrentPosition = mProgressManager!!.getSavedProgress(mUrl)
+            mCurrentPosition = mProgressManager?.getSavedProgress(mUrl) ?: 0
         }
 
         initPlayer()
         addDisplay()
-        startPrepare()
+        startPrepare(false)
         return true
     }
 
@@ -265,7 +345,9 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
      * 初始化之后的配置项
      */
     private fun setOptions() {
-        TODO("Not yet implemented")
+        mMediaPlayer?.setLooping(mIsLooping)
+        val volume = if (isMute) 0.0f else 1.0f
+        mMediaPlayer?.setVolume(volume, volume)
     }
 
     /**
@@ -278,14 +360,54 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
      * 添加到TextureView
      */
     private fun addDisplay() {
+        mRenderView?.let {
+            mPlayerContainer.removeView(it.view)
+            it.release()
+        }
 
+        mRenderViewFactory = TextureRenderViewFactory.create()
+        mRenderView = mRenderViewFactory?.createRenderView(context)
+        mMediaPlayer?.let { mRenderView?.attachToPlayer(it) }
+
+        val params = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER)
+        mPlayerContainer.addView(mRenderView?.view, 0, params)
     }
 
     /**
      * 开始准备播放
      */
-    private fun startPrepare() {
+    private fun startPrepare(reset: Boolean) {
+        if (reset) {
+            mMediaPlayer?.reset()
+            setOptions()
+        }
+        if (prepareDataSource()) {
+            mMediaPlayer?.prepareAsync()
+            setPlayState(STATE_PREPARING)
 
+            val playerState = if (isFullScreen()) {
+                PLAYER_FULL_SCREEN
+            } else if (isTinyScreen()) {
+                PLAYER_TINY_SCREEN
+            } else {
+                PLAYER_NORMAL
+            }
+            setPlayerState(playerState)
+        }
+    }
+
+    /**
+     * 准备播放
+     */
+    private fun prepareDataSource(): Boolean {
+        if (mAssetFileDescriptor != null) {
+            mMediaPlayer?.setDataSource(mAssetFileDescriptor!!)
+            return true
+        } else if (!TextUtils.isEmpty(mUrl)) {
+            mUrl?.let { url -> mHeaders?.let { handlers -> mMediaPlayer?.setDataSource(url, handlers) } }
+            return true
+        }
+        return false
     }
 
 
@@ -296,8 +418,21 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
         mCurrentPlayState = playState
         mVideoControl?.setPlayState(playState)
         if (mOnStateChangeListeners != null) {
-            for (l: OnStateChangeListener in PlayerUtils.getSnapshot(mOnStateChangeListeners!!)) {
-                l.onPlayStateChanged(playState)
+            for (l: OnStateChangeListener? in PlayerUtils.getSnapshot(mOnStateChangeListeners!!)) {
+                l?.onPlayStateChanged(playState)
+            }
+        }
+    }
+
+    /**
+     * 设置全屏非全屏状态
+     */
+    private fun setPlayerState(playerState: Int) {
+        mCurrentPlayerState = playerState
+        mVideoControl?.setPlayerState(playerState)
+        if (mOnStateChangeListeners != null) {
+            for (l: OnStateChangeListener? in PlayerUtils.getSnapshot(mOnStateChangeListeners!!)) {
+                l?.onPlayStateChanged(playerState)
             }
         }
     }
@@ -308,7 +443,7 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     private fun showNetWarning(): Boolean {
         //播放本地文件 不检查网络
         if (isLocalDataSource()) return false
-        return mVideoControl != null && mVideoControl!!.showNetWarning()
+        return mVideoControl != null && mVideoControl?.showNetWarning() == true
     }
 
     /**
@@ -333,13 +468,13 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
         mPlayerContainer.removeView(mVideoControl)
         mVideoControl = mediaController
         if (null != mediaController) {
-            //TODO
+            mVideoControl?.setMediaPlayer(this)
             val params =
-                ViewGroup.LayoutParams(
+                LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-            this.addView(mVideoControl, params)
+            mPlayerContainer.addView(mVideoControl, params)
         }
     }
 
@@ -396,118 +531,477 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
         mOnStateChangeListeners?.clear()
     }
 
-
+    /**
+     * 在播放状态下
+     */
     private fun startInPlaybackState() {
-        TODO("Not yet implemented")
+        mMediaPlayer?.start()
+        setPlayState(STATE_PLAYING)
+        if (mAudioFocusHelper != null && !isMute()) {
+            mAudioFocusHelper?.requestFocus()
+        }
+        mPlayerContainer.keepScreenOn = true
     }
 
 
+    /**
+     * 暂停播放
+     */
     override fun pause() {
-        TODO("Not yet implemented")
+        if (isInPlaybackState() && mMediaPlayer?.isPlaying() == true) {
+            mMediaPlayer?.pause()
+            setPlayState(STATE_PAUSED)
+            //释放音频焦点
+            if (mAudioFocusHelper != null && !isMute()) {
+                mAudioFocusHelper?.abandonFocus()
+            }
+            //不保持常亮
+            mPlayerContainer.keepScreenOn = false
+        }
     }
 
+    /**
+     * 继续播放
+     */
+    fun resume() {
+        if (isInPlaybackState() && mMediaPlayer?.isPlaying() == false) {
+            mMediaPlayer?.start()
+            setPlayState(STATE_PLAYING)
+            //获取音频焦点
+            if (mAudioFocusHelper != null && !isMute()) {
+                mAudioFocusHelper?.requestFocus()
+            }
+            //保持常亮
+            mPlayerContainer.keepScreenOn = true
+        }
+    }
+
+    /**
+     * 播放器是否是空闲状态
+     */
+    private fun isInIdleState(): Boolean {
+        return mCurrentPlayState == STATE_IDLE
+    }
+
+    /**
+     * 释放资源
+     */
+    fun release() {
+        if (isInIdleState()) {
+            //释放播放器
+            if (mMediaPlayer != null) {
+                mMediaPlayer?.release()
+                mMediaPlayer = null
+            }
+
+            //释放reader
+            if (mRenderView != null) {
+                mPlayerContainer.removeView(mRenderView?.view)
+                mRenderView?.release()
+                mRenderView = null
+            }
+
+            //释放assets
+            if (mAssetFileDescriptor != null) {
+                try {
+                    mAssetFileDescriptor?.close()
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                }
+            }
+
+            //释放音频焦点
+            if (mAudioFocusHelper != null) {
+                mAudioFocusHelper?.abandonFocus()
+                mAudioFocusHelper = null
+            }
+
+            //关闭屏幕常亮
+            mPlayerContainer.keepScreenOn = false
+
+            //保存进度
+            saveProgress()
+
+            //重制生命周期 进度
+            mCurrentPosition = 0
+
+            //设置状态
+            setPlayState(STATE_IDLE)
+        }
+    }
+
+    /**
+     * 保存进度
+     */
+    private fun saveProgress() {
+        if (mProgressManager != null && mCurrentPosition > 0) {
+            d("saveProgress: $mCurrentPosition")
+            mProgressManager?.saveProgress(mUrl, mCurrentPosition)
+        }
+    }
+
+    /**
+     * 获取时长
+     */
     override fun getDuration(): Long {
-        TODO("Not yet implemented")
+        if (isInPlaybackState()) {
+            return mMediaPlayer?.getDuration()!!
+        }
+        return 0
     }
 
+    /**
+     * 获取当前播放进度
+     */
     override fun getCurrentPosition(): Long {
-        TODO("Not yet implemented")
+        if (isInPlaybackState()) {
+            mCurrentPosition = mMediaPlayer?.getCurrentPosition()!!
+            return mCurrentPosition
+        }
+        return 0
     }
 
+    /**
+     * 拖动进度
+     */
     override fun seekTo(pos: Long) {
-        TODO("Not yet implemented")
+        if (isInPlaybackState()) mMediaPlayer?.seekTo(pos)
     }
 
+    /**
+     * 是否播放
+     */
     override fun isPlaying(): Boolean {
-        TODO("Not yet implemented")
+        return isInPlaybackState() && mMediaPlayer?.isPlaying() == true
     }
 
+    /**
+     * 获取缓冲百分比
+     */
     override fun getBufferedPercentage(): Int {
-        TODO("Not yet implemented")
+        return mMediaPlayer?.getBufferedPercentage() ?: 0
     }
 
+    /**
+     * 设置全屏
+     */
     override fun startFullScreen() {
-        TODO("Not yet implemented")
+        //是全屏不继续执行
+        if (mIsFullScreen) return
+
+        //获取decorView类
+        val decorView = getDecorView() ?: return
+
+        mIsFullScreen = true
+
+        //隐藏NavigationBar和StatusBar
+        hideSysBar(decorView)
+
+        //从当前最底层view移除当前播放mPlayerContainer
+        this.removeView(mPlayerContainer)
+
+        //添加到DecorView
+        decorView.addView(mPlayerContainer)
+
+        //设置全屏状态
+        setPlayerState(PLAYER_FULL_SCREEN)
     }
 
+    /**
+     * 隐藏NavigationBar和StatusBar
+     */
+    private fun hideSysBar(decorView: ViewGroup) {
+        val window = getActivity()?.window
+        if (window != null) {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            WindowInsetsControllerCompat(window, decorView).let { controller ->
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+    }
+
+    private fun showSysBar(decorView: ViewGroup) {
+        val window = getActivity()?.window as Window
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowInsetsControllerCompat(window, decorView).show(WindowInsetsCompat.Type.systemBars())
+    }
+
+
+    /**
+     * 退出全屏
+     */
     override fun stopFullScreen() {
-        TODO("Not yet implemented")
+        if (!mIsFullScreen) return
+        //获取decorView类
+        val decorView = getDecorView() ?: return
+
+        mIsFullScreen = false
+        //显示NavigationBar和StatusBar
+        showSysBar(decorView)
+        //移除表示退出全屏
+        decorView.removeView(mPlayerContainer)
+        this.addView(mPlayerContainer)
+        //设置为普通播放状态
+        setPlayerState(PLAYER_NORMAL)
     }
 
+    /**
+     * 是否全屏
+     */
     override fun isFullScreen(): Boolean {
-        TODO("Not yet implemented")
+        return mIsFullScreen
     }
 
+    /**
+     * 设置静音
+     */
     override fun setMute(isMute: Boolean) {
-        TODO("Not yet implemented")
+        this.isMute = isMute
+        if (mMediaPlayer != null) {
+            val volume = if (isMute) 0.0f else 1.0f
+            mMediaPlayer?.setVolume(volume, volume)
+        }
     }
 
+    /**
+     * 是否静音
+     */
     override fun isMute(): Boolean {
-        TODO("Not yet implemented")
+        return this.isMute
     }
 
+    /**
+     * 设置屏幕比例类型
+     */
     override fun setScreenScaleType(screenScaleType: Int) {
-        TODO("Not yet implemented")
+        mCurrentScreenScaleType = screenScaleType
+        if (mRenderView != null) {
+            mRenderView?.setScaleType(screenScaleType)
+        }
     }
 
+    /**
+     * 设置播放倍速
+     */
     override fun setSpeed(speed: Float) {
-        TODO("Not yet implemented")
+        if (isInPlaybackState()) {
+            mMediaPlayer?.setSpeed(speed)
+        }
     }
 
+    /**
+     * 获取倍速
+     */
     override fun getSpeed(): Float {
-        TODO("Not yet implemented")
+        if (isInPlaybackState()) {
+            return mMediaPlayer?.getSpeed() ?: 1f
+        }
+        return 1f
     }
 
+    /**
+     * 设置视频地址
+     */
+    private fun setUrl(url: String?) {
+        if (url != null) {
+            setUrl(url, null)
+        }
+    }
+
+    /**
+     * 设置包含请求头信息的视频地址
+     *
+     * @param url     视频地址
+     * @param headers 请求头
+     */
+    private fun setUrl(url: String, headers: Map<String?, String?>?) {
+        mAssetFileDescriptor = null
+        mUrl = url
+        mHeaders = headers
+    }
+
+    /**
+     * 用于播放assets里面的视频文件
+     */
+    private fun setAssetFileDescriptor(fd: AssetFileDescriptor?) {
+        mUrl = null
+        mAssetFileDescriptor = fd
+    }
+
+    /**
+     * 一开始播放就seek到预先设置好的位置
+     */
+    private fun skipPositionWhenPlay(position: Int) {
+        mCurrentPosition = position.toLong()
+    }
+
+
+    /**
+     * 获取缓冲下载速度
+     */
     override fun getTcpSpeed(): Long {
-        TODO("Not yet implemented")
+        if (isInPlaybackState()) {
+            return mMediaPlayer?.getTcpSpeed() ?: 0
+        }
+        return 0
     }
 
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (hasWindowFocus && mIsFullScreen) {
+            //重新获取焦点隐藏
+            getDecorView()?.let { hideSysBar(it) }
+        }
+    }
+
+    /**
+     * 重新播放
+     * resetPosition 是否重新播放
+     */
     override fun replay(resetPosition: Boolean) {
-        TODO("Not yet implemented")
+        if (resetPosition) {
+            mCurrentPosition = 0
+        }
+        addDisplay()
+        startPrepare(true)
     }
 
+    /**
+     * 设置镜像旋转，暂不支持SurfaceView
+     */
     override fun setMirrorRotation(enable: Boolean) {
-        TODO("Not yet implemented")
+        if (mRenderView != null) {
+            mRenderView?.view?.scaleX = if (enable) -1f else 1f
+        }
     }
 
+    /**
+     * 屏幕截图,暂不支持SurfaceView
+     */
     override fun doScreenShot(): Bitmap? {
-        TODO("Not yet implemented")
+        if (mRenderView != null) {
+            return mRenderView?.doScreenShot()
+        }
+        return null
     }
 
+    /**
+     * 获取视频宽高,其中width: mVideoSize[0], height: mVideoSize[1]
+     */
     override fun getVideoSize(): IntArray? {
-        TODO("Not yet implemented")
+        return mVideoSize
     }
 
+    /**
+     * 设置小窗视频尺寸
+     */
+    fun setTinyScreenSize(size: IntArray) {
+        mTinyScreenSize = size
+    }
+
+    /**
+     * 启动小屏幕播放
+     */
     override fun startTinyScreen() {
-        TODO("Not yet implemented")
+        if (mIsTinyScreen) return
+        val contentView = getContentView() ?: return
+        this.removeView(mPlayerContainer)
+
+        var width = mTinyScreenSize[0]
+        var height = mTinyScreenSize[1]
+
+        if (width <= 0) {
+            width = PlayerUtils.getScreenWidth(context, false) / 2
+        }
+
+        if (height <= 0) {
+            height = width * 9 / 16
+        }
+
+        val params = LayoutParams(width, height)
+        params.gravity = Gravity.BOTTOM or Gravity.END
+        contentView.addView(mPlayerContainer, params)
+        mIsTinyScreen = true
+        setPlayerState(PLAYER_TINY_SCREEN)
     }
 
+    /**
+     * 停止小屏幕播放
+     */
     override fun stopTinyScreen() {
-        TODO("Not yet implemented")
+        if (!mIsTinyScreen) return
+        val contentView = getContentView() ?: return
+        //从Content移除
+        contentView.removeView(mPlayerContainer)
+        //添加到playerContainer
+        val params = LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        this.addView(mPlayerContainer, params)
+        mIsTinyScreen = false
+        setPlayerState(PLAYER_NORMAL)
     }
 
+    /**
+     * 是否是小屏
+     */
     override fun isTinyScreen(): Boolean {
-        TODO("Not yet implemented")
+        return mIsTinyScreen
     }
 
+    /**
+     * 播放报错
+     */
     override fun onError() {
-        TODO("Not yet implemented")
+        mPlayerContainer.keepScreenOn = false
+        setPlayState(STATE_ERROR)
     }
 
+    /**
+     * 播放完成
+     */
     override fun onCompletion() {
-        TODO("Not yet implemented")
+        mPlayerContainer.keepScreenOn = false
+        mCurrentPosition = 0
+        if (mProgressManager != null) {
+            mProgressManager?.saveProgress(mUrl, 0)
+        }
+        setPlayState(STATE_PLAYBACK_COMPLETED)
     }
 
+    /**
+     * 视频信息
+     */
     override fun onInfo(what: Int, extra: Int) {
-        TODO("Not yet implemented")
+        //TODO
     }
 
+    /**
+     * 准备完成
+     */
     override fun onPrepared() {
-        TODO("Not yet implemented")
+        setPlayState(STATE_PREPARED)
+        if (mAudioFocusHelper != null && !isMute) {
+            mAudioFocusHelper?.requestFocus()
+        }
+        if (mCurrentPosition > 0) {
+            seekTo(mCurrentPosition)
+        }
     }
 
+    /**
+     * 视频大小改变
+     */
     override fun onVideoSizeChanged(width: Int, height: Int) {
-        TODO("Not yet implemented")
+        mVideoSize[0] = width
+        mVideoSize[1] = height
+        if (mRenderView != null) {
+            mRenderView?.setScaleType(mCurrentScreenScaleType)
+            mRenderView?.setVideoSize(width, height)
+        }
     }
 
     /**
@@ -519,6 +1013,58 @@ open class BaseVideoView<P : AbstractPlayer> : FrameLayout, MediaPlayerControl,
     open fun setVolume(v1: Float, v2: Float) {
         if (mMediaPlayer != null) {
             mMediaPlayer?.setVolume(v1, v2)
+        }
+    }
+
+    /**
+     * 获取DecorView
+     */
+    protected open fun getDecorView(): ViewGroup? {
+        val activity = getActivity() ?: return null
+        return activity.window.decorView as ViewGroup
+    }
+
+    /**
+     * 获取activity中的content view,其id为android.R.id.content
+     */
+    private fun getContentView(): ViewGroup? {
+        val activity = getActivity() ?: return null
+        return activity.findViewById(android.R.id.content)
+    }
+
+    /**
+     * 获取Activity
+     */
+    private fun getActivity(): Activity? {
+        var activity: Activity?
+        if (mVideoControl != null) {
+            activity = PlayerUtils.scanForActivity(mVideoControl?.context)
+            if (activity == null) {
+                activity = PlayerUtils.scanForActivity(context)
+            }
+        } else {
+            activity = PlayerUtils.scanForActivity(context)
+        }
+        return activity
+    }
+
+    /**
+     * 改变返回键逻辑，用于activity
+     */
+    open fun onBackPressed(): Boolean {
+        return mVideoControl != null && mVideoControl?.onBackPressed() == true
+    }
+
+    override fun onSaveInstanceState(): Parcelable? {
+        d("onSaveInstanceState: $mCurrentPosition")
+        //activity切到后台后可能被系统回收，故在此处进行进度保存
+        saveProgress()
+        return super.onSaveInstanceState()
+    }
+
+    override fun setRotation(rotation: Float) {
+        if (mRenderView != null) {
+            mRenderView?.setVideoRotation(rotation.toInt())
         }
     }
 }
