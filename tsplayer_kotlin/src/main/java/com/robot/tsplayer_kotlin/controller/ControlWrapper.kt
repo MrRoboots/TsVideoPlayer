@@ -1,5 +1,7 @@
 package com.robot.tsplayer_kotlin.controller
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 
 class ControlWrapper(mediaPlayerControl: MediaPlayerControl, videoControl: IVideoController) : MediaPlayerControl,
@@ -206,6 +208,53 @@ class ControlWrapper(mediaPlayerControl: MediaPlayerControl, videoControl: IVide
             pause()
         } else {
             start()
+        }
+    }
+
+
+    /**
+     * 横竖屏切换，会旋转屏幕
+     */
+    fun toggleFullScreen(activity: Activity?) {
+        if (activity == null || activity.isFinishing) return
+        if (isFullScreen()) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            stopFullScreen()
+        } else {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            startFullScreen()
+        }
+    }
+
+    /**
+     * 横竖屏切换，不会旋转屏幕
+     */
+    fun toggleFullScreen() {
+        if (isFullScreen()) {
+            stopFullScreen()
+        } else {
+            startFullScreen()
+        }
+    }
+
+    /**
+     * 横竖屏切换，根据适配宽高决定是否旋转屏幕
+     */
+    fun toggleFullScreenByVideoSize(activity: Activity?) {
+        if (activity == null || activity.isFinishing) return
+        val size = getVideoSize()
+        val width = size!![0]
+        val height = size[1]
+        if (isFullScreen()) {
+            stopFullScreen()
+            if (width > height) {
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+        } else {
+            startFullScreen()
+            if (width > height) {
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
         }
     }
 

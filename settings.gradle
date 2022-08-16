@@ -25,3 +25,4 @@ rootProject.name = "TsVideoPlayer"
 include ':app'
 include ':tsplayer-videocache'
 include ':tsplayer_kotlin'
+include ':tsplayer-ui'

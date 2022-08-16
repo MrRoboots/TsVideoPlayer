@@ -16,7 +16,7 @@ interface IControlComponent {
     /**
      * 回调控制器显示和隐藏状态
      */
-    fun onVisibilityChanged(mShowing: Boolean, anim: Animation)
+    fun onVisibilityChanged(mShowing: Boolean, anim: Animation?)
 
     /**
      * 绑定ControlComponent和Controller
@@ -39,7 +39,7 @@ interface IControlComponent {
     fun onPlayStateChanged(playState: Int)
 
     /**
-     *
+     * 全屏/非全屏回调
      */
     fun onPlayerStateChange(playerState: Int)
 

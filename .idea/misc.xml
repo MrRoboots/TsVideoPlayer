@@ -4,6 +4,18 @@
     <option name="filePathToZoomLevelMap">
       <map>
         <entry key="app/src/main/res/layout/activity_main.xml" value="0.3037037037037037" />
+        <entry key="tsplayer-ui/src/main/res/drawable/dkplayer_seekbar_thumb.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/dkplayer_seekbar_thumb_normal.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_layer_progress_bar.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_seekbar_thumb.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_selector_full_screen_button.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_selector_lock_button.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_selector_play_button.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_shape_stardard_controller_bottom_bg.xml" value="0.179" />
+        <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_complete_view.xml" value="0.3890625" />
+        <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_error_view.xml" value="0.3890625" />
+        <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_gesture_control_view.xml" value="0.3890625" />
+        <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_live_control_view.xml" value="0.3890625" />
       </map>
     </option>
   </component>

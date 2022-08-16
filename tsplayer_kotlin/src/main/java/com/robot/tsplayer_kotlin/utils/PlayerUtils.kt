@@ -9,6 +9,8 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.TypedValue
 import android.view.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 class PlayerUtils {
@@ -210,12 +212,40 @@ class PlayerUtils {
         /**
          * 边缘检测
          */
+        @JvmStatic
         fun isEdge(context: Context?, e: MotionEvent): Boolean {
             val edgeSize = dp2px(context!!, 40f)
             return e.rawX < edgeSize
                     || e.rawX > getScreenWidth(context, true) - edgeSize
                     || e.rawY < edgeSize
                     || e.rawY > getScreenHeight(context, true) - edgeSize
+        }
+
+
+        /**
+         * 格式化时间
+         */
+        @JvmStatic
+        fun stringForTime(timeMs: Int): String {
+            val totalSeconds = timeMs / 1000
+            val seconds = totalSeconds % 60
+            val minutes = totalSeconds / 60 % 60
+            val hours = totalSeconds / 3600
+            return if (hours > 0) {
+                String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
+            } else {
+                String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+            }
+        }
+
+        /**
+         * 获取当前系统时间
+         */
+        @JvmStatic
+        fun getCurrentSystemTime(): String? {
+            val simpleDateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val date = Date()
+            return simpleDateFormat.format(date)
         }
 
     }
