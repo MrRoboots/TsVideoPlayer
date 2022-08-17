@@ -4,10 +4,19 @@
     <option name="filePathToZoomLevelMap">
       <map>
         <entry key="app/src/main/res/layout/activity_main.xml" value="0.3037037037037037" />
+        <entry key="app/src/main/res/layout/activity_player.xml" value="0.22" />
+        <entry key="app/src/main/res/layout/fragment_api.xml" value="0.33" />
+        <entry key="app/src/main/res/layout/fragment_extension.xml" value="0.3880208333333333" />
+        <entry key="app/src/main/res/layout/fragment_list.xml" value="0.3880208333333333" />
+        <entry key="app/src/main/res/layout/fragment_pip.xml" value="0.3890625" />
+        <entry key="app/src/main/res/menu/main_menu.xml" value="0.3890625" />
+        <entry key="app/src/main/res/menu/main_navigation_items.xml" value="0.3890625" />
         <entry key="tsplayer-ui/src/main/res/drawable/dkplayer_seekbar_thumb.xml" value="0.191" />
         <entry key="tsplayer-ui/src/main/res/drawable/dkplayer_seekbar_thumb_normal.xml" value="0.191" />
         <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_layer_progress_bar.xml" value="0.191" />
         <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_seekbar_thumb.xml" value="0.191" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_seekbar_thumb_normal.xml" value="0.179" />
+        <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_seekbar_thumb_pressed.xml" value="0.179" />
         <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_selector_full_screen_button.xml" value="0.191" />
         <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_selector_lock_button.xml" value="0.191" />
         <entry key="tsplayer-ui/src/main/res/drawable/tsplayer_selector_play_button.xml" value="0.191" />
@@ -16,6 +25,8 @@
         <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_error_view.xml" value="0.3890625" />
         <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_gesture_control_view.xml" value="0.3890625" />
         <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_live_control_view.xml" value="0.3890625" />
+        <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_prepare_view.xml" value="0.3890625" />
+        <entry key="tsplayer-ui/src/main/res/layout/dkplayer_layout_vod_control_view.xml" value="0.3890625" />
       </map>
     </option>
   </component>

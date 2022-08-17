@@ -3,6 +3,10 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+static def releaseTime() {
+    return new Date().format("yyyy_MM_dd", TimeZone.getTimeZone("UTC"))
+}
+
 android {
     compileSdk rootProject.ext.compileSdkVersion
 
@@ -12,11 +16,31 @@ android {
         targetSdk rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.releaseVersionCode
         versionName rootProject.ext.releaseVersion
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            //使用abiFilters筛选你需要的so
+//            abiFilters 'arm64-v8a'
+        }
+        multiDexEnabled true
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        // Or, if you prefer, you can continue to check for errors in release builds,
+        // but continue the build even when errors are found:
+        abortOnError false
     }
 
     buildTypes {
+        debug {
+//            signingConfig signingConfigs.release
+            zipAlignEnabled false
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -29,6 +53,12 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            outputFileName = "${variant.name}-${variant.versionName}-${releaseTime()}(${variant.versionCode}).apk"
+        }
+    }
 }
 
 dependencies {
@@ -36,4 +66,16 @@ dependencies {
     implementation rootProject.ext.appcompat
     implementation rootProject.ext.material
     implementation rootProject.ext.constraintlayout
+    implementation rootProject.ext.multidex
+    implementation rootProject.ext.recyclerview
+    implementation rootProject.ext.viewpager2
+    implementation rootProject.ext.glide
+    implementation rootProject.ext.glideCompiler
+    implementation rootProject.ext.DanmakuFlameMaster
+    implementation rootProject.ext.ndkbitmap
+    implementation rootProject.ext.gson
+
+    implementation project(':tsplayer-kotlin')
+    implementation project(':tsplayer-ui')
+    implementation project(':tsplayer-videocache')
 }

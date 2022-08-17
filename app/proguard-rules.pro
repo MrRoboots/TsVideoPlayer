@@ -1,9 +1,13 @@
 # Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# By default, the flags in this file are appended to flags specified
+# in D:\sdk/tools/proguard/proguard-android.txt
+# You can edit the include path and order by changing the proguardFiles
+# directive in build.gradle.
 #
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
+
+# Add any project specific keep options here:
 
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
@@ -19,3 +23,22 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+-keep class tv.danmaku.ijk.** { *; }
+-dontwarn tv.danmaku.ijk.**
+-keep class xyz.doikki.videoplayer.** { *; }
+-dontwarn com.robot.tsvideoplayer.**
+
+-keep class com.google.android.exoplayer2.** { *; }
+-dontwarn com.google.android.exoplayer2.**
+
+-keep class com.aplayer.** { *; }
+-dontwarn com.aplayer.**
+
+-dontwarn com.yanzhenjie.permission.**
+
+-keep class android.support.** { *; }
+
+-keep class com.bumptech.glide.** { *; }
+
+-keep class xyz.doikki.dkplayer.bean.** { *; }

@@ -5,5 +5,5 @@ dependencies {
     implementation rootProject.ext.appcompat
     implementation rootProject.ext.material
     implementation rootProject.ext.constraintlayout
-    implementation project(':tsplayer_kotlin')
+    implementation project(':tsplayer-kotlin')
 }

@@ -12,9 +12,9 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/tsplayer-kotlin" />
             <option value="$PROJECT_DIR$/tsplayer-ui" />
             <option value="$PROJECT_DIR$/tsplayer-videocache" />
-            <option value="$PROJECT_DIR$/tsplayer_kotlin" />
           </set>
         </option>
       </GradleProjectSettings>
